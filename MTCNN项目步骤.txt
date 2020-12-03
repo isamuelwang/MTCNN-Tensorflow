@@ -1,0 +1,102 @@
+
+
+1.先使用命令创建MTCNN虚拟环境：
+conda create --name MTCNN python=3.6
+
+
+2.进入 MTCNN虚拟环境，conda deactivate退出 MTCNN虚拟环境：
+source activate MTCNN
+退出环境：
+source deactivate MTCNN
+
+3.安装Tensorflow：
+conda install tensorflow-gpu==1.3.0
+安装opencv:
+conda install opencv
+
+4.运行tensorflow如果有警告出现, 卸载装好的numpy： pip uninstall numpy
+从新安装合适版本： pip install numpy==1.13.0
+
+（安装中如果出错，可以卸载，推荐重装所有安装使用conda 安装，因为Anaconda 会自动更新重装关联库）
+将文件中的tools.py文件拷贝到prepare_data文件夹下
+不然会出现
+
+
+5.下载Wider Face 数据集
+可以从官方网站下载Wider Face Training部分并解压缩替换prepare_data/WIDER_train这个文件夹。
+
+6.将MTCNN-Tensorflow/tools.py文件夹复制到./prepare_data/下:
+cp tools.py ./prepare_data/
+
+7.数据预处理
+进入prepare_data文件夹中：
+生成P-Net的训练数据
+运行: python gen_shuffle_data.py 12
+参数设置为12，生成P-Net的训练数据
+
+运行: python gen_tfdata_12net.py
+生成对应的 tfrecords 数据格式文件（如果电脑配置不好，源码中size改小一些）
+neg_keep = npr.choice(len(neg), size=1000000, replace=False)
+改为：neg_keep = npr.choice(len(neg), size=1000, replace=False)
+
+8.进入src文件夹中：
+训练P-Net,进入scr文件夹：
+
+修改：
+    load_filename = './pretrained/initial_weight_pnet.npy'
+    save_filename = './save_model/new_saver/pnet/pnet'
+    training_data = ['./prepare_data/pnet_data_for_cls.tfrecords',
+                     './prepare_data/pnet_data_for_bbx.tfrecords']
+为：
+    load_filename = '../pretrained/initial_weight_pnet.npy'
+    save_filename = '../save_model/new_saver/pnet/pnet'
+    training_data = ['../prepare_data/pnet_data_for_cls.tfrecords',
+                     '../prepare_data/pnet_data_for_bbx.tfrecords']
+
+运行命令：python mtcnn_pnet_test.py，训练P-Net
+
+#======
+
+9.生成R-Net的训练数据
+将src文件夹复制到prepare_data文件夹下： cp -r src/ ./prepare_data/
+
+进入prepare_datas文件
+运行： python tf_gen_12net_hard_example.py
+
+更改 default='../save_model/seperate_net/pnet/pnet-3000000'，
+为：default='../save_model/sepatate/pnet/pnet-3000000'
+
+运行 :python gen_shuffle_data.py 24 （参数设置为24）
+运行: python gen_tfdata_24net.py  ，合并数据并生成对应的 tfrecords 数据格式文件
+
+10.训练R-Net
+
+运行: python mtcnn_rnet_test.py，训练R-Net
+（修改内容与PNet相同）
+
+11.生成O-Net的训练数据
+运行：python tf_gen_24net_hard_example.py
+ppython gen_shuffle_data.py 48（参数设置为48）
+运行: 
+python gen_tfdata_48net.py，合并数据并生成对应的 tfrecords 数据格式文件（size=200000,改为20000）
+(修改内容同
+
+12.训练O-Net
+
+运行mtcnn_onet_test.py，训练O-Net
+(修改同上)
+13.测试
+运行 test_img.py，参数接你的图片路径和模型路径
+
+P-Net训练时常：1~2天
+R-Net训练时间：1天
+O-Net训练市场：1
+
+测试：
+
+python test_img.py ./images\timg.jpg --model_dir ./save_model\all_in_one/ --save_image True --save_name ./images\timg1.jpg
+
+说明
+1.其中PNet在训练阶段的输入尺寸为12乘12,RNet的输入尺寸为24乘24, ONet的输入尺寸为48乘48.
+2.P-Net、R-Net、O-Net分别训练，先训练P-Net，R-Net根据训练的P-Net生成hard样本再训练，O-Net同理。
+3.以上的训练过程中生成的hard样本依然是根据原作者的模型，如果使用自己训练的模型，记得修改参数路径
